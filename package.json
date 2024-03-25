@@ -1,0 +1,30 @@
+{
+  "name": "fuzzy-lamp",
+  "version": "1.0.0",
+  "description": "manages employee database",
+  "main": "server.js",
+  "scripts": {
+    "test": "test",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/VZachary13/fuzzy-lamp.git"
+  },
+  "keywords": [
+    "bingus"
+  ],
+  "author": "VZ13",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/VZachary13/fuzzy-lamp/issues"
+  },
+  "homepage": "https://github.com/VZachary13/fuzzy-lamp#readme",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.1",
+    "inquirer": "^8.2.4",
+    "mysql2": "^3.9.2",
+    "sequelize": "^6.37.1"
+  }
+}
