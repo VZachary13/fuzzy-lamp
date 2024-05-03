@@ -1,24 +1,7 @@
 const inquirer = require('inquirer');
-const express = require('express');
-const mysql = require('mysql2');
 const { table } = require('table');
-const {question1, addDept, addRole, addEmp} = require('./lib/questions');
-require('dotenv').config();
-
-const app = express();
-
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
-
-const db = mysql.createConnection(
-    {
-        host: 'localhost',
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        database: process.env.DB_NAME
-    },
-    console.log(`connected to the employees_db database`)
-);
+const {makeUpdate, question1, addDept, addRole, addEmp} = require('./lib/questions');
+const db = require('./config/connections')
 
 init();
 
@@ -27,19 +10,21 @@ function viewDepartment(){
     db.query('SELECT id, dptname AS name FROM departments', (error, results) => {
         
         if (error) {
-        console.error('Error executing query:', error);
-        return;
+            console.error('Error executing query:', error);
+            return;
         } 
         
         const newTable = [
             ['Department ID', 'Department Name']
         ] 
 
-        results.forEach(department => {
-            newTable.push([department.id, department.name])
+        results.forEach(peanuts => {
+            newTable.push([peanuts.id, peanuts.name])
         })
 
         console.log('\n'+table(newTable));
+                                
+        init();
     })
 }
 
@@ -53,7 +38,9 @@ function addDepartment(){
                 return;
             }
 
-            console.log('Department added successfully.');             
+            console.log('Department added successfully.'); 
+                                
+            init();            
         })
     })
 }
@@ -77,6 +64,8 @@ function viewRoles(){
         })
 
         console.log('\n'+table(newTable));
+                                
+        init();
     })
 }
 
@@ -89,9 +78,9 @@ function addNewRole(){
         db.query('SELECT id, dptname FROM departments', (error, results) => {
             
             if (error) {
-            console.error('Error fetching department IDs:', error);
-            return;
-            } 
+                console.error('Error executing query:', error);
+                return;
+            }
 
             deptIDQuery = results.map(department => `${department.id}: ${department.dptname}`);
 
@@ -107,11 +96,13 @@ function addNewRole(){
                 db.query('INSERT INTO roles (title, salary, department_id) VALUES (?, ?, ?)', [data.title, data.salary, dptid[0]], (error, results) => {
                     
                     if (error) {
-                        console.error('Error adding role:', error);
+                        console.error('Error executing query:', error);
                         return;
                     }
 
-                    console.log('Role added successfully.');             
+                    console.log('Role added successfully.'); 
+                                
+                    init();            
                 })
 
             })
@@ -127,9 +118,9 @@ function viewEmployees(){
     LEFT JOIN employees AS managers ON employees.manager_id = managers.id`, (error, results) => {
 
         if (error) {
-        console.error('Error executing query:', error);
-        return;
-        }  
+            console.error('Error executing query:', error);
+            return;
+        } 
 
         const newTable = [
             ['Employee ID', 'Name', 'Title', 'Salary', 'Department', 'Manager']
@@ -140,6 +131,8 @@ function viewEmployees(){
         })
 
         console.log('\n'+table(newTable));
+                                
+        init();
     })
 }
 
@@ -150,8 +143,8 @@ function addEmployees(){
         db.query('SELECT id, title FROM roles', (error, results) => {
 
             if (error) {
-            console.error('Error executing query:', error);
-            return;
+                console.error('Error executing query:', error);
+                return;
             } 
             
             const roleIDQuery = results.map(role => role.title);
@@ -175,7 +168,7 @@ function addEmployees(){
                 WHERE title = '${data2.title}'`, (error, results2) => {
 
                     if (error) {
-                        console.error('Error adding department:', error);
+                        console.error('Error executing query:', error);
                         return;
                     }
 
@@ -186,7 +179,7 @@ function addEmployees(){
                     WHERE roles.department_id = '${department}'`,(error, results3) => {
 
                         if (error) {
-                            console.error('Error adding department:', error);
+                            console.error('Error executing query:', error);
                             return;
                         }
 
@@ -207,17 +200,17 @@ function addEmployees(){
                                     manager_id = manager.id;
                                 }
                             })
-                                
-                            console.log(manager_id);
 
                             db.query('INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)', [data.firstname, data.lastname, roleID, manager_id], (error, results) => {
                                 
                                 if (error) {
-                                    console.error('Error adding employee:', error);
+                                    console.error('Error executing query:', error);
                                     return;
                                 }
 
                                 console.log('Employee added successfully.');
+
+                                init();
                             })
                         })
                     })
@@ -227,45 +220,206 @@ function addEmployees(){
     })
 }
 
-async function init(){
-    let loopBreak = 0;
-    while (loopBreak === 0) {
-    await inquirer.prompt(question1).then((data) => {
-        switch (data.choice) {
-            case 'View all departments':
-                viewDepartment();
+function updateEmployees(){
+
+    db.query(`SELECT id, CONCAT(first_name, ' ', last_name) AS name FROM employees`, (error, results) => {
+
+        if (error) {
+            console.error('Error executing query:', error);
+            return;
+        }
+        empList = results.map(employee => `${employee.id}: ${employee.name}`);
+        var empID;
+                
+        inquirer.prompt({
+            type: 'list',
+            name: 'employee',
+            message: "Which employee's data would you like to update?",
+            choices: empList
+        }).then((data) => {
+            var temp = data.employee.split(': ');
+            results.map(emp => {
+                if(temp[1] == emp.name) {
+                    empID = emp.id;
+                }
+            })
+            console.log(empID);
+            updateSwitchCase(empID);
+        })
+    })
+}
+
+function updateSwitchCase(empID){
+    
+    inquirer.prompt(makeUpdate).then((choiceData)=>{
+
+        switch (choiceData.which){
+            case 'Name':
+                updateName(empID);
                 break;
-            case 'View all roles':
-                viewRoles();
+
+            case 'Role':
+                updateRole(empID);
                 break;
-            case 'View all employees':
-                viewEmployees();
+
+            case 'Manager':
+                updateManager(empID);
                 break;
-            case 'Add a department':
-                addDepartment();
-                break;
-            case 'Add a role':
-                addNewRole();
-                break;
-            case 'Add an employee':
-                addEmployees();
-                break;
-            case 'Update an employee role':
-                db.query('SELECT * FROM roles', (error, results) => {
-                    if (error) {
-                    console.error('Error executing query:', error);
-                    return;
-                    } 
-                    console.log(results)
-                })
-                break;
+
             case 'Quit':
-                loopBreak = -1;
-                db.end();
-                break;
-            default:
+                init();
                 break;
         }
     })
 }
+
+function updateName(empID){
+    inquirer.prompt(addEmp).then((nameData)=>{
+        db.query(`UPDATE employees SET first_name = '${nameData.firstname}', last_name = '${nameData.lastname}' WHERE id = '${empID}'`, (error, results) => {
+
+            if (error) {
+                console.error('Error executing query:', error);
+                return;
+            }
+
+            console.log('Name updated successfully');
+            updateSwitchCase(empID);
+        })
+    })
+}
+
+function updateRole(empID){
+    
+    db.query('SELECT id, title FROM roles', (error, results) => {
+
+        if (error) {
+            console.error('Error executing query:', error);
+            return;
+        }
+        
+        const roleIDQuery = results.map(role => role.title);
+
+        inquirer.prompt({
+            type: 'list',
+            name: 'title',
+            message: 'Please select a job role from available roles',
+            choices: roleIDQuery
+        }).then((data2) => {
+
+            var roleID;
+
+            results.map(role => {
+                if (data2.title == role.title) {
+                    roleID = role.id;
+                }
+            })
+            
+            db.query(`UPDATE employees SET role_id = '${roleID}' WHERE id = '${empID}'`, (error, results) => {
+
+                if (error) {
+                    console.error('Error executing query:', error);
+                    return;
+                }
+
+                console.log('Role updated successfully');
+                updateSwitchCase(empID);
+            })
+        }) 
+    })
+}
+
+function updateManager(empID){
+    db.query(`SELECT department_id FROM roles
+    WHERE title = '${data2.title}'`, (error, results2) => {
+
+        if (error) {
+            console.error('Error executing query:', error);
+            return;
+        }
+
+        const department = results2.map(department => department.department_id);
+
+        db.query(`SELECT employees.id, CONCAT(employees.first_name, ' ', employees.last_name) AS name FROM employees
+        INNER JOIN roles ON employees.role_id = roles.id
+        WHERE roles.department_id = '${department}'`,(error, results3) => {
+
+            if (error) {
+                console.error('Error executing query:', error);
+                return;
+            }
+
+            const employeeNameQuery = results3.map(employee => employee.name);
+            employeeNameQuery.push('No Manager');
+
+            inquirer.prompt({
+                type: 'list',
+                name: 'name',
+                message: 'Please select a manager from available employees or select "No Manager"',
+                choices: employeeNameQuery
+            }).then((data3) => {
+
+                var manager_id = null; 
+
+                results3.map(manager => {
+                    if (data3.name == manager.name) {
+                        manager_id = manager.id;
+                    }
+                })
+                
+                db.query(`UPDATE employees SET manager_id = '${manager_id}' WHERE id = '${empID}'`, (error, results) => {
+
+                    if (error) {
+                        console.error('Error executing query:', error);
+                        return;
+                    }
+
+                    console.log('Manager updated successfully');
+                    updateSwitchCase(empID);
+                })
+            }) 
+        }) 
+    })
+}
+
+function init(){
+    inquirer.prompt(question1).then((data) => {
+
+        switch (data.choice) {
+
+            case 'View all departments':
+                viewDepartment();
+                break;
+
+            case 'View all roles':
+                viewRoles();
+                break;
+
+            case 'View all employees':
+                viewEmployees();
+                break;
+
+            case 'Add a department':
+                addDepartment();
+                break;
+
+            case 'Add a role':
+                addNewRole();
+                break;
+
+            case 'Add an employee':
+                addEmployees();
+                break;
+
+            case 'Update an employee':
+                updateEmployees();
+                break;
+
+            case 'Quit':
+                db.end();
+                break;
+
+            default:
+                break;
+        }
+    })
 }
