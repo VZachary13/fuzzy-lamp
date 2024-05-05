@@ -31,7 +31,7 @@ I made this program to simplify the task of organizing and maintaining a company
 
 ## Screenshot
 
-![Project Screenshot](images\scrnshot.jpg)
+![Project Screenshot](./images\scrnshot.jpg)
 
 ### deployed page --> N/A
 
