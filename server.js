@@ -222,7 +222,8 @@ function addEmployees(){
 
 function updateEmployees(){
 
-    db.query(`SELECT id, CONCAT(first_name, ' ', last_name) AS name FROM employees`, (error, results) => {
+    db.query(`SELECT employees.id, CONCAT(employees.first_name, ' ', employees.last_name) AS name, roles.title FROM employees
+    INNER JOIN roles ON employees.role_id = roles.id`, (error, results) => {
 
         if (error) {
             console.error('Error executing query:', error);
@@ -230,6 +231,7 @@ function updateEmployees(){
         }
         empList = results.map(employee => `${employee.id}: ${employee.name}`);
         var empID;
+        var empTitle;
                 
         inquirer.prompt({
             type: 'list',
@@ -243,13 +245,18 @@ function updateEmployees(){
                     empID = emp.id;
                 }
             })
+            results.map(emp=> {
+                if(emp.id == empID) {
+                    empTitle = emp.title
+                }
+            })
             console.log(empID);
-            updateSwitchCase(empID);
+            updateSwitchCase(empID, empTitle);
         })
     })
 }
 
-function updateSwitchCase(empID){
+function updateSwitchCase(empID, empTitle){
     
     inquirer.prompt(makeUpdate).then((choiceData)=>{
 
@@ -263,7 +270,7 @@ function updateSwitchCase(empID){
                 break;
 
             case 'Manager':
-                updateManager(empID);
+                updateManager(empID, empTitle);
                 break;
 
             case 'Quit':
@@ -328,9 +335,9 @@ function updateRole(empID){
     })
 }
 
-function updateManager(empID){
+function updateManager(empID, empTitle){
     db.query(`SELECT department_id FROM roles
-    WHERE title = '${data2.title}'`, (error, results2) => {
+    WHERE title = '${empTitle}'`, (error, results2) => {
 
         if (error) {
             console.error('Error executing query:', error);
@@ -365,17 +372,29 @@ function updateManager(empID){
                         manager_id = manager.id;
                     }
                 })
-                
-                db.query(`UPDATE employees SET manager_id = '${manager_id}' WHERE id = '${empID}'`, (error, results) => {
-
-                    if (error) {
-                        console.error('Error executing query:', error);
-                        return;
-                    }
-
-                    console.log('Manager updated successfully');
-                    updateSwitchCase(empID);
-                })
+                if (manager_id == null) {
+                    db.query(`UPDATE employees SET manager_id = NULL WHERE id = '${empID}'`, (error, results) => {
+    
+                        if (error) {
+                            console.error('Error executing query:', error);
+                            return;
+                        }
+    
+                        console.log('Manager updated successfully');
+                        updateSwitchCase(empID);
+                    })
+                } else {
+                    db.query(`UPDATE employees SET manager_id = '${manager_id}' WHERE id = '${empID}'`, (error, results) => {
+                        
+                        if (error) {
+                            console.error('Error executing query:', error);
+                            return;
+                        }
+                        
+                        console.log('Manager updated successfully');
+                        updateSwitchCase(empID);
+                    })
+                }
             }) 
         }) 
     })
